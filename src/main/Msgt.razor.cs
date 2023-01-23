@@ -22,17 +22,17 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Timers;
 
-namespace ei8.Cortex.Diary.Plugins.Tree
+namespace ei8.Cortex.Diary.Plugins.MessageTree
 {
-    public partial class Tree : ComponentBase, IDefaultComponentParameters, IDisposable
+    public partial class Msgt : ComponentBase, IDefaultComponentParameters, IDisposable
     {
         private bool reloading = true;
         private Dropdown optionsDropdown;
         private Timer refreshTimer;
-        private DotNetObjectReference<Tree>? dotNetHelper;
-        private TreePluginSettingsService pluginSettingsService;
+        private DotNetObjectReference<Msgt>? dotNetHelper;
+        private MessageTreePluginSettingsService pluginSettingsService;
 
-        public Tree()
+        public Msgt()
         {
             this.internalSelectedOptionChanged = EventCallback.Factory.Create(this, new Func<ContextMenuOption, Task>(this.HandleSelectionOptionChanged));
         }
@@ -209,7 +209,7 @@ namespace ei8.Cortex.Diary.Plugins.Tree
             {
                 try
                 {
-                    var ns = await Tree.GetOrderedNeurons(this);
+                    var ns = await Msgt.GetOrderedNeurons(this);
                     var currentLastIndex = ns.ToList().FindLastIndex(nr => nr.Id == this.Children.Last().Neuron.Id);
                     var newNeurons = ns.Where((n, i) => i > currentLastIndex && !this.Children.Any(nvm => nvm.Neuron.Id == n.Id));
                     if (newNeurons.Count() > 0)
@@ -236,10 +236,14 @@ namespace ei8.Cortex.Diary.Plugins.Tree
             this.refreshTimer?.Dispose();
         }
 
-        private async static Task<IEnumerable<Neuron>> GetOrderedNeurons(Tree value)
+        private async static Task<IEnumerable<Neuron>> GetOrderedNeurons(Msgt value)
         {
+            string posterUrls = string.Empty;
+            if (value.pluginSettingsService.PosterUrls.HasValue)
+                posterUrls = (value.AvatarUrl.Contains("=") ? "&" : String.Empty) + value.pluginSettingsService.PosterUrls.ToUrlEncodedString();
+
             var ns = (await value.NeuronQueryService.SendQuery(
-                        value.AvatarUrl,
+                        value.AvatarUrl + posterUrls,
                         Helpers.String.IsExternalUrl(value.NavigationManager.Uri, value.AvatarUrl)
                         )).Items;
 
@@ -282,7 +286,7 @@ namespace ei8.Cortex.Diary.Plugins.Tree
                     if (this.selectedDefaultRegionNeuron != null)
                     {
                         this.NavigationManager.NavigateTo(
-                            Tree.BuildAvatarUrl(this.NavigationManager.Uri, this.AvatarUrl) + "&regionid=" + value.Neuron.Id,
+                            Msgt.BuildAvatarUrl(this.NavigationManager.Uri, this.AvatarUrl) + "&regionid=" + value.Neuron.Id,
                             true);
                         this.selectedDefaultRegionNeuron = null;
                     }
@@ -339,7 +343,7 @@ namespace ei8.Cortex.Diary.Plugins.Tree
                 {
                     await this.SetReloading(true);
                     this.Children.Clear();
-                    var ns = await Tree.GetOrderedNeurons(this);
+                    var ns = await Msgt.GetOrderedNeurons(this);
                     var children = ns.Select(nr => new TreeNeuronViewModel(new Neuron(nr), this.AvatarUrl, this.NeuronQueryService));
                     ((List<TreeNeuronViewModel>)this.Children).AddRange(children);
                     this.NewItemsCount = 0;
@@ -359,7 +363,6 @@ namespace ei8.Cortex.Diary.Plugins.Tree
                 postActionInvoker: async () =>
                 {
                     await this.SetReloading(false);
-                    await this.LoadGraph();
                 }
             );
         }
@@ -420,54 +423,9 @@ namespace ei8.Cortex.Diary.Plugins.Tree
             }
         }
 
-        private async Task LoadGraph()
-        {
-            var allNodes = new List<Node>();
-            Tree.ExtractNodes(this.Children.ToArray(), allNodes);
-
-            var distinctNodes = new List<Node>();
-            // get distinct nodes
-            allNodes.ForEach(n =>
-            {
-                if (!distinctNodes.Any(dn => dn.id == n.id))
-                    distinctNodes.Add(new Node() { id = n.id, tag = n.tag });
-            });
-
-            // get links
-            var links = new List<Link>();
-            Tree.ExtractLinks(this.Children.ToArray(), distinctNodes, links);
-
-            await this.JsRuntime.InvokeVoidAsync("displayGraph", distinctNodes, links);
-        }
-
-        private static void ExtractNodes(IEnumerable<TreeNeuronViewModel> children, List<Node> allNodes)
-        {
-            allNodes.AddRange(children.Select(c => new Node { id = c.Neuron.Id, tag = c.Neuron.Tag }).ToArray());
-
-            children.ToList().ForEach(c => Tree.ExtractNodes(c.Children, allNodes));
-        }
-
-        private static void ExtractLinks(IEnumerable<TreeNeuronViewModel> children, List<Node> distinctNodes, List<Link> links)
-        {
-            children.ToList().ForEach(c =>
-            {
-                if (c.Neuron.Type != RelativeType.NotSet)
-                {
-                    var tsource = distinctNodes.FindIndex(n => n.id == c.Neuron.Terminal.PresynapticNeuronId);
-                    var ttarget = distinctNodes.FindIndex(n => n.id == c.Neuron.Terminal.PostsynapticNeuronId);
-
-                    var typeVal = (c.Neuron.Terminal.Strength == "1" ? "full" : "partial") + (c.Neuron.Terminal.Effect == "-1" ? "inhibit" : "excite");
-                    if (!links.Any(gl => gl.source == tsource && gl.target == ttarget))
-                        links.Add(new Link() { source = tsource, target = ttarget, type = typeVal });
-                }
-            });
-
-            children.ToList().ForEach(c => Tree.ExtractLinks(c.Children.ToArray(), distinctNodes, links));
-        }
-
         private void CopyAvatarUrl()
         {
-            this.JsRuntime.InvokeVoidAsync("copyToClipboard", Tree.BuildAvatarUrl(this.NavigationManager.Uri, this.AvatarUrl));
+            this.JsRuntime.InvokeVoidAsync("copyToClipboard", Msgt.BuildAvatarUrl(this.NavigationManager.Uri, this.AvatarUrl));
             this.ToastService.ShowInfo($"Copied successfully.");
             this.optionsDropdown.Hide();
         }
@@ -602,6 +560,6 @@ namespace ei8.Cortex.Diary.Plugins.Tree
         [Parameter]
         public ISubscriptionQueryService SubscriptionsQueryService { get; set; }
         [Parameter]
-        public IPluginSettingsService PluginSettingsService { get => this.pluginSettingsService; set { this.pluginSettingsService = (TreePluginSettingsService) value; } }
+        public IPluginSettingsService PluginSettingsService { get => this.pluginSettingsService; set { this.pluginSettingsService = (MessageTreePluginSettingsService) value; } }
     }
 }
