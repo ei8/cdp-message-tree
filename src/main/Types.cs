@@ -14,4 +14,9 @@ namespace ei8.Cortex.Diary.Plugins.MessageTree
         Delete,
         AddRelative
     }
+
+    public struct ErrorMessage
+    {
+        public const string MissingExternalInstantiatesMessage = "Required External Reference 'Instantiates, Message' was not found.";
+    }
 }

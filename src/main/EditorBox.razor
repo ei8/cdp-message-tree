@@ -335,6 +335,9 @@
     }
 
     [Parameter]
+    public Neuron InstantiatesMessageNeuron { get; set; }
+
+    [Parameter]
     public string AvatarUrl { get; set; }
 
     private EditorTerminalViewModel EditTerminal { get; set; }
@@ -510,6 +513,8 @@
     private async Task FormSubmitted(EditContext editContext)
     {
         bool formValid = editContext.Validate();
+        formValid &= this.InstantiatesMessageNeuron.ValidateExists(this.toastService, ErrorMessage.MissingExternalInstantiatesMessage);
+
         if (formValid)
         {
             await this.ProcessSend(
@@ -532,7 +537,8 @@
                                     this.terminalApplicationService,
                                     rq,
                                     pi,
-                                    () => this.IsConfirmCreateSimilarVisible = true
+                                    () => this.IsConfirmCreateSimilarVisible = true,
+                                    this.InstantiatesMessageNeuron
                                 );
                             else
                                 pi.Suspend = true;
@@ -590,7 +596,16 @@
         }
     }
 
-    private async static Task<bool> CreateNeuron(EditorNeuronViewModel editorNeuronViewModel, INeuronQueryService neuronQueryService, INeuronApplicationService neuronApplicationService, ITerminalApplicationService terminalApplicationService, QueryUrl rq, ProcessInfo pi, Action hasSimilarHandler)
+    private async static Task<bool> CreateNeuron(
+        EditorNeuronViewModel editorNeuronViewModel, 
+        INeuronQueryService neuronQueryService, 
+        INeuronApplicationService neuronApplicationService, 
+        ITerminalApplicationService terminalApplicationService, 
+        QueryUrl rq, 
+        ProcessInfo pi, 
+        Action hasSimilarHandler, 
+        Neuron instantiatesMessageNeuron = null
+    )
     {
         bool result = false;
         var items = (await neuronQueryService.GetNeurons(
@@ -604,7 +619,7 @@
 
         if (!items.Any())
         {
-            await EditorBox.CreateNeuronCore(neuronApplicationService, rq, editorNeuronViewModel, terminalApplicationService);
+            await EditorBox.CreateNeuronCore(neuronApplicationService, rq, editorNeuronViewModel, terminalApplicationService, instantiatesMessageNeuron);
             result = true;
         }
         else
@@ -617,7 +632,13 @@
         return result;
     }
 
-    private async static Task CreateNeuronCore(INeuronApplicationService neuronApplicationService, QueryUrl rq, EditorNeuronViewModel editorNeuronViewModel, ITerminalApplicationService terminalApplicationService)
+    private async static Task CreateNeuronCore(
+        INeuronApplicationService neuronApplicationService, 
+        QueryUrl rq, 
+        EditorNeuronViewModel editorNeuronViewModel, 
+        ITerminalApplicationService terminalApplicationService,
+        Neuron instantiatesMessageNeuron = null
+    )
     {
         var newNeuronId = Guid.NewGuid().ToString();
 
@@ -632,6 +653,25 @@
         editorNeuronViewModel.Terminals.ToList().ForEach(async e =>
             await terminalApplicationService.CreateTerminalFromViewModel(e, newNeuronId, rq.AvatarUrl)
         );
+
+        if (instantiatesMessageNeuron != null)
+        {
+            var terminalToInstantiatesMessageCreated = editorNeuronViewModel.Terminals.Any(
+                t => t.Type == RelativeType.Postsynaptic &&
+                t.Neuron.Id == instantiatesMessageNeuron.Id
+            );
+
+            if (!terminalToInstantiatesMessageCreated)
+                await terminalApplicationService.CreateTerminal(
+                    rq.AvatarUrl,
+                    Guid.NewGuid().ToString(),
+                    newNeuronId,
+                    instantiatesMessageNeuron.Id,
+                    NeurotransmitterEffect.Excite,
+                    1,
+                    string.Empty
+                );
+        }
     }
 
     private async Task OnCancel()

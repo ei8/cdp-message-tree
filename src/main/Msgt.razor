@@ -102,7 +102,14 @@ else
     </div>
 }
 <div class="footer px-4 h-auto" style="z-index:2">
-    <EditorBox AvatarUrl="@this.AvatarUrl" InitialRegionNeuron="@this.InitialRegionNeuron" InitialPostsynapticNeurons="@this.InitialPostsynapticNeurons" SelectedNeuron="@this.EditNeuron" @bind-SelectedOption="@this.SelectedOption" />
+    <EditorBox 
+        AvatarUrl="@this.AvatarUrl" 
+        InitialRegionNeuron="@this.InitialRegionNeuron" 
+        InitialPostsynapticNeurons="@this.InitialPostsynapticNeurons" 
+        SelectedNeuron="@this.EditNeuron" 
+        InstantiatesMessageNeuron="@this.InstantiatesMessageNeuron"
+        @bind-SelectedOption="@this.SelectedOption" 
+        />
 </div>
 
 <audio id="sound" src=@(this.SettingsService.BasePath + "/media/alert.wav") />

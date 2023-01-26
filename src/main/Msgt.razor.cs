@@ -137,11 +137,10 @@ namespace ei8.Cortex.Diary.Plugins.MessageTree
                 }
                 bool urlSet = false;
                 var query = QueryHelpers.ParseQuery(uri.Query);
-                if (query.TryGetValue("avatarUrl", out var encodedAvatarUrl))
+                if (query.TryGetValue("avatarUrl", out var avatarUrl))
                 {
                     Uri uriResult;
-                    string decodedUrl = Nancy.Helpers.HttpUtility.UrlDecode(encodedAvatarUrl);
-                    bool validUrl = Uri.TryCreate(decodedUrl, UriKind.Absolute, out uriResult)
+                    bool validUrl = Uri.TryCreate(avatarUrl, UriKind.Absolute, out uriResult)
                         && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
                     if (validUrl)
                     {
@@ -149,7 +148,7 @@ namespace ei8.Cortex.Diary.Plugins.MessageTree
                         Neuron regionNeuron = null;
                         IEnumerable<Neuron> postsynapticNeurons = null;
 
-                        if (Library.Client.QueryUrl.TryParse(decodedUrl, out QueryUrl urlResult))
+                        if (Library.Client.QueryUrl.TryParse(avatarUrl, out QueryUrl urlResult))
                         {
                             if (query.TryGetValue("regionId", out var regionId))
                             {
@@ -170,11 +169,25 @@ namespace ei8.Cortex.Diary.Plugins.MessageTree
                                     }
                                     ))?.Items;
                             }
+
+                            if (!string.IsNullOrWhiteSpace(this.pluginSettingsService.PosterUrls.InstantiatesMessage))
+                            {
+                                this.InstantiatesMessageNeuron = (await this.NeuronQueryService.GetNeurons(
+                                    urlResult.AvatarUrl,
+                                    new NeuronQuery()
+                                    {
+                                        ExternalReferenceUrl = new string[] { this.pluginSettingsService.PosterUrls.InstantiatesMessage }
+                                    }))
+                                    .Items
+                                    .FirstOrDefault();
+                            }
+
+                            this.InstantiatesMessageNeuron.ValidateExists(this.ToastService, ErrorMessage.MissingExternalInstantiatesMessage);
                         }
 
                         await Task.Run(() =>
                         {
-                            this.AvatarUrl = decodedUrl;
+                            this.AvatarUrl = avatarUrl;
                             this.InitialRegionNeuron = regionNeuron;
                             this.InitialPostsynapticNeurons = postsynapticNeurons;
                             this.Reload();
@@ -238,12 +251,8 @@ namespace ei8.Cortex.Diary.Plugins.MessageTree
 
         private async static Task<IEnumerable<Neuron>> GetOrderedNeurons(Msgt value)
         {
-            string posterUrls = string.Empty;
-            if (value.pluginSettingsService.PosterUrls.HasValue)
-                posterUrls = (value.AvatarUrl.Contains("=") ? "&" : String.Empty) + value.pluginSettingsService.PosterUrls.ToUrlEncodedString();
-
             var ns = (await value.NeuronQueryService.SendQuery(
-                        value.AvatarUrl + posterUrls,
+                        value.AvatarUrl,
                         Helpers.String.IsExternalUrl(value.NavigationManager.Uri, value.AvatarUrl)
                         )).Items;
 
@@ -319,6 +328,8 @@ namespace ei8.Cortex.Diary.Plugins.MessageTree
         private TreeNeuronViewModel SelectedNeuron { get; set; } = null;
 
         private Neuron InitialRegionNeuron { get; set; } = null;
+
+        private Neuron InstantiatesMessageNeuron { get; set; } = null;
 
         private IEnumerable<Neuron> InitialPostsynapticNeurons { get; set; } = null;
 
