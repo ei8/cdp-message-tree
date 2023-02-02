@@ -76,7 +76,7 @@
                     </div>
                     <div class="row"
                         <div class="col py-1 px-0">
-                            <KeyWatcherInputTextArea class="form-control w-100" placeholder="Tag" @bind-Value="@this.editorNeuronViewModel.Tag" rows="4" @onkeydown="@this.KeyPress" />
+                            <KeyWatcherInputTextArea class="form-control w-100" placeholder="Tag" @bind-Value="@this.editorNeuronViewModel.Tag" rows="4" @onkeyup="@this.KeyPress" />
                             <ValidationMessage For=@(() => this.editorNeuronViewModel.Tag) />
                         </div>
                     </div>
@@ -127,6 +127,7 @@
 <RegionSearchBox AvatarUrl="@this.AvatarUrl" @bind-IsVisible="@this.IsSearchRegionNeuronVisible" @bind-SelectedNeuron="this.SelectedRegionNeuron" />
 <TerminalEditorBox AvatarUrl="@this.AvatarUrl" @bind-IsVisible="@this.IsTerminalEditorVisible" SelectedTerminal="this.EditTerminal" @bind-ResultTerminal="this.ResultTerminal" />
 <NeuronSearchBox AvatarUrl="@this.editorNeuronViewModel.NeuronExternalReferenceUrl" @bind-IsVisible="@this.IsSearchExternalReferenceNeuronVisible" @bind-SelectedNeuron="this.SelectedExternalReferenceNeuron" />
+<GoogleDriveBox @bind-IsVisible="@this.IsGoogleDriveBoxVisible" @bind-AcceptedDrive="this.AcceptedDrive" />
 
 @code {
     private EditorNeuronViewModel editorNeuronViewModel = new EditorNeuronViewModel();
@@ -268,7 +269,7 @@
                         async (rq, pi) =>
                         {
                             pi.Description = "Terminal creation";
-                            // add directly via API
+                        // add directly via API
                             this.resultTerminal.Id = Guid.NewGuid().ToString();
 
                             await this.terminalApplicationService.CreateTerminalFromViewModel(
@@ -335,7 +336,8 @@
     }
 
     [Parameter]
-    public Neuron InstantiatesMessageNeuron { get; set; }
+    public MessageTreePluginSettingsService PluginSettingsService { get; set; }
+
 
     [Parameter]
     public string AvatarUrl { get; set; }
@@ -390,6 +392,8 @@
         }
     }
 
+    private bool AcceptedDrive { get; set; }
+
     private Neuron initialRegionNeuron;
     [Parameter]
     public Neuron InitialRegionNeuron
@@ -432,6 +436,7 @@
     }
 
     private bool IsSearchRegionNeuronVisible { get; set; } = false;
+    private bool IsGoogleDriveBoxVisible { get; set; } = false;
 
     private EventCallback<EditorTerminalViewModel> internalResultTerminalChanged;
 
@@ -504,6 +509,18 @@
 
     private async Task KeyPress(KeyboardEventArgs e)
     {
+        bool check = this.editorNeuronViewModel.Tag.Contains("https://drive.google.com/file");
+        if (check)
+        {
+            if (!this.AcceptedDrive)
+            { 
+                this.OnGoogleDrive();
+            }
+        }
+        else
+        {
+            this.AcceptedDrive = false;
+        }
         if ((e.Code == "Enter" || e.Code == "NumpadEnter") && e.CtrlKey)
         {
             await this.FormSubmitted(this.editContext);
@@ -513,8 +530,6 @@
     private async Task FormSubmitted(EditContext editContext)
     {
         bool formValid = editContext.Validate();
-        formValid &= this.InstantiatesMessageNeuron.ValidateExists(this.toastService, ErrorMessage.MissingExternalInstantiatesMessage);
-
         if (formValid)
         {
             await this.ProcessSend(
@@ -533,12 +548,15 @@
                                 result = await EditorBox.CreateNeuron(
                                     this.editorNeuronViewModel,
                                     this.neuronQueryService,
+                                    this.toastService,
                                     this.neuronApplicationService,
                                     this.terminalApplicationService,
                                     rq,
                                     pi,
                                     () => this.IsConfirmCreateSimilarVisible = true,
-                                    this.InstantiatesMessageNeuron
+                                    true,
+                                    this.AcceptedDrive,
+                                    this.PluginSettingsService
                                 );
                             else
                                 pi.Suspend = true;
@@ -546,7 +564,7 @@
                             break;
                         case ContextMenuOption.Edit:
                             pi.Description = "Neuron modification";
-                            // TODO: indicate how many and which changes succeeded/failed
+                        // TODO: indicate how many and which changes succeeded/failed
                             if (this.editorNeuronViewModel.Tag != this.preEditCopy.Tag)
                             {
                                 await this.neuronApplicationService.ChangeNeuronTag(
@@ -581,11 +599,15 @@
                             result = await EditorBox.CreateNeuron(
                                 this.editorNeuronViewModel,
                                 this.neuronQueryService,
+                                this.toastService,
                                 this.neuronApplicationService,
                                 this.terminalApplicationService,
                                 rq,
                                 pi,
-                                () => this.IsConfirmCreateSimilarVisible = true
+                                () => this.IsConfirmCreateSimilarVisible = true,
+                                false,
+                                this.AcceptedDrive,
+                                this.PluginSettingsService
                             );
                             break;
                     }
@@ -599,12 +621,15 @@
     private async static Task<bool> CreateNeuron(
         EditorNeuronViewModel editorNeuronViewModel, 
         INeuronQueryService neuronQueryService, 
+        IToastService toastService,
         INeuronApplicationService neuronApplicationService, 
         ITerminalApplicationService terminalApplicationService, 
         QueryUrl rq, 
         ProcessInfo pi, 
         Action hasSimilarHandler, 
-        Neuron instantiatesMessageNeuron = null
+        bool instantiatesMessageNeuron,
+        bool instantiatesGoogleDriveImageNeuron,
+        MessageTreePluginSettingsService messageTreePluginSettingsService
     )
     {
         bool result = false;
@@ -619,7 +644,7 @@
 
         if (!items.Any())
         {
-            await EditorBox.CreateNeuronCore(neuronApplicationService, rq, editorNeuronViewModel, terminalApplicationService, instantiatesMessageNeuron);
+            await EditorBox.CreateNeuronCore(neuronApplicationService,neuronQueryService,toastService, rq, editorNeuronViewModel, terminalApplicationService, instantiatesMessageNeuron,instantiatesGoogleDriveImageNeuron,messageTreePluginSettingsService);
             result = true;
         }
         else
@@ -634,43 +659,96 @@
 
     private async static Task CreateNeuronCore(
         INeuronApplicationService neuronApplicationService, 
+        INeuronQueryService neuronQueryService, 
+        IToastService toastService,
         QueryUrl rq, 
         EditorNeuronViewModel editorNeuronViewModel, 
         ITerminalApplicationService terminalApplicationService,
-        Neuron instantiatesMessageNeuron = null
+        bool bInstantiatesMessageNeuron,
+        bool bInstantiatesGoogleDriveImageNeuron,
+        MessageTreePluginSettingsService messageTreePluginSettingsService
     )
     {
-        var newNeuronId = Guid.NewGuid().ToString();
-
-        await neuronApplicationService.CreateNeuron(
-            rq.AvatarUrl,
-            newNeuronId,
-            editorNeuronViewModel.Tag,
-            editorNeuronViewModel.RegionId,
-            editorNeuronViewModel.NeuronExternalReferenceUrl
-            );
-
-        editorNeuronViewModel.Terminals.ToList().ForEach(async e =>
-            await terminalApplicationService.CreateTerminalFromViewModel(e, newNeuronId, rq.AvatarUrl)
-        );
-
-        if (instantiatesMessageNeuron != null)
+        Neuron instantiatesMessageNeuron = null;
+        if (!string.IsNullOrWhiteSpace(messageTreePluginSettingsService.PosterUrls.InstantiatesMessage))
         {
-            var terminalToInstantiatesMessageCreated = editorNeuronViewModel.Terminals.Any(
-                t => t.Type == RelativeType.Postsynaptic &&
-                t.Neuron.Id == instantiatesMessageNeuron.Id
+            instantiatesMessageNeuron = (await  neuronQueryService.GetNeurons(
+                rq.AvatarUrl,
+                new NeuronQuery()
+                {
+                    ExternalReferenceUrl = new string[] { messageTreePluginSettingsService.PosterUrls.InstantiatesMessage }
+                }))
+                .Items
+                .FirstOrDefault();
+        }
+
+        var validMessage = instantiatesMessageNeuron.ValidateExists(toastService, ErrorMessage.MissingExternalInstantiatesMessage);
+        if (validMessage)
+        {
+            var newNeuronId = Guid.NewGuid().ToString();
+
+            await neuronApplicationService.CreateNeuron(
+                rq.AvatarUrl,
+                newNeuronId,
+                editorNeuronViewModel.Tag,
+                editorNeuronViewModel.RegionId,
+                editorNeuronViewModel.NeuronExternalReferenceUrl
+                );
+
+            editorNeuronViewModel.Terminals.ToList().ForEach(async e =>
+                await terminalApplicationService.CreateTerminalFromViewModel(e, newNeuronId, rq.AvatarUrl)
             );
 
-            if (!terminalToInstantiatesMessageCreated)
-                await terminalApplicationService.CreateTerminal(
-                    rq.AvatarUrl,
-                    Guid.NewGuid().ToString(),
-                    newNeuronId,
-                    instantiatesMessageNeuron.Id,
-                    NeurotransmitterEffect.Excite,
-                    1,
-                    string.Empty
+            if (bInstantiatesMessageNeuron)
+            {
+                var terminalToInstantiatesMessageCreated = editorNeuronViewModel.Terminals.Any(
+                    t => t.Type == RelativeType.Postsynaptic &&
+                    t.Neuron.Id == instantiatesMessageNeuron.Id
                 );
+
+                if (!terminalToInstantiatesMessageCreated)
+                    await terminalApplicationService.CreateTerminal(
+                        rq.AvatarUrl,
+                        Guid.NewGuid().ToString(),
+                        newNeuronId,
+                        instantiatesMessageNeuron.Id,
+                        NeurotransmitterEffect.Excite,
+                        1,
+                        string.Empty
+                    );
+            }
+
+            Neuron instantiatesGoogleDriveImageNeuron = null;
+            if (!string.IsNullOrWhiteSpace(messageTreePluginSettingsService.PosterUrls.InstantiatesGoogleDriveImage))
+            {
+                instantiatesGoogleDriveImageNeuron = (await neuronQueryService.GetNeurons(
+                    rq.AvatarUrl,
+                    new NeuronQuery()
+                        {
+                            ExternalReferenceUrl = new string[] { messageTreePluginSettingsService.PosterUrls.InstantiatesGoogleDriveImage }
+                        }))
+                    .Items
+                    .FirstOrDefault();
+            }
+            validMessage = instantiatesGoogleDriveImageNeuron.ValidateExists(toastService, ErrorMessage.MissingExternalInstantiatesGoogleDriveImage);
+            if (bInstantiatesGoogleDriveImageNeuron && validMessage)
+            {
+                var terminalToInstantiatesMessageCreated = editorNeuronViewModel.Terminals.Any(
+                    t => t.Type == RelativeType.Postsynaptic &&
+                    t.Neuron.Id == instantiatesGoogleDriveImageNeuron.Id
+                );
+
+                if (!terminalToInstantiatesMessageCreated)
+                    await terminalApplicationService.CreateTerminal(
+                        rq.AvatarUrl,
+                        Guid.NewGuid().ToString(),
+                        newNeuronId,
+                        instantiatesGoogleDriveImageNeuron.Id,
+                        NeurotransmitterEffect.Excite,
+                        1,
+                        string.Empty
+                    );
+            }
         }
     }
 
@@ -713,6 +791,11 @@
     private void OnSearchRegionNeuron()
     {
         this.IsSearchRegionNeuronVisible = true;
+    }
+
+    private void OnGoogleDrive()
+    {
+        this.IsGoogleDriveBoxVisible = true;
     }
 
     private void OnSearchExternalReferenceNeuron()
@@ -772,9 +855,14 @@
 
                 await EditorBox.CreateNeuronCore(
                     neuronApplicationService,
+                    this.neuronQueryService,
+                    this.toastService,
                     rq,
                     editorNeuronViewModel,
-                    terminalApplicationService
+                    terminalApplicationService,
+                    true,
+                    this.AcceptedDrive,
+                    this.PluginSettingsService
                     );
                 return true;
             },
@@ -856,7 +944,8 @@
             {
                 if (itemContext.Neuron.Type == Library.Common.RelativeType.Postsynaptic)
                 {
-                    return retFragment = @<span @attributes="this.GetEffectStyle(itemContext.Neuron)">&#x21FE;</span>;
+                    return retFragment = 
+    @<span @attributes="this.GetEffectStyle(itemContext.Neuron)">&#x21FE;</span>;
                 }
                 else
                 {

@@ -170,19 +170,7 @@ namespace ei8.Cortex.Diary.Plugins.MessageTree
                                     ))?.Items;
                             }
 
-                            if (!string.IsNullOrWhiteSpace(this.pluginSettingsService.PosterUrls.InstantiatesMessage))
-                            {
-                                this.InstantiatesMessageNeuron = (await this.NeuronQueryService.GetNeurons(
-                                    urlResult.AvatarUrl,
-                                    new NeuronQuery()
-                                    {
-                                        ExternalReferenceUrl = new string[] { this.pluginSettingsService.PosterUrls.InstantiatesMessage }
-                                    }))
-                                    .Items
-                                    .FirstOrDefault();
-                            }
-
-                            this.InstantiatesMessageNeuron.ValidateExists(this.ToastService, ErrorMessage.MissingExternalInstantiatesMessage);
+                            
                         }
 
                         await Task.Run(() =>
@@ -329,7 +317,7 @@ namespace ei8.Cortex.Diary.Plugins.MessageTree
 
         private Neuron InitialRegionNeuron { get; set; } = null;
 
-        private Neuron InstantiatesMessageNeuron { get; set; } = null;
+        
 
         private IEnumerable<Neuron> InitialPostsynapticNeurons { get; set; } = null;
 

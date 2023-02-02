@@ -16,7 +16,7 @@ namespace ei8.Cortex.Diary.Plugins.MessageTree
         {
             this.configuration = configuration;
         }
-
+        public string InstantiatesGoogleDriveImage => this.configuration["PosterUrls:InstantiatesGoogleDriveImage"];
         public string InstantiatesMessage => this.configuration["PosterUrls:InstantiatesMessage"];
 
         public bool HasValue
