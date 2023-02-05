@@ -76,7 +76,7 @@
                     </div>
                     <div class="row"
                         <div class="col py-1 px-0">
-                            <KeyWatcherInputTextArea class="form-control w-100" placeholder="Tag" @bind-Value="@this.editorNeuronViewModel.Tag" rows="4" @onkeyup="@this.KeyPress" />
+                            <KeyWatcherInputTextArea class="form-control w-100" placeholder="Tag" @bind-Value="@this.editorNeuronViewModel.Tag" rows="4" @onkeydown="@this.KeyPress" />
                             <ValidationMessage For=@(() => this.editorNeuronViewModel.Tag) />
                         </div>
                     </div>
@@ -127,7 +127,6 @@
 <RegionSearchBox AvatarUrl="@this.AvatarUrl" @bind-IsVisible="@this.IsSearchRegionNeuronVisible" @bind-SelectedNeuron="this.SelectedRegionNeuron" />
 <TerminalEditorBox AvatarUrl="@this.AvatarUrl" @bind-IsVisible="@this.IsTerminalEditorVisible" SelectedTerminal="this.EditTerminal" @bind-ResultTerminal="this.ResultTerminal" />
 <NeuronSearchBox AvatarUrl="@this.editorNeuronViewModel.NeuronExternalReferenceUrl" @bind-IsVisible="@this.IsSearchExternalReferenceNeuronVisible" @bind-SelectedNeuron="this.SelectedExternalReferenceNeuron" />
-<GoogleDriveBox @bind-IsVisible="@this.IsGoogleDriveBoxVisible" @bind-AcceptedDrive="this.AcceptedDrive" />
 
 @code {
     private EditorNeuronViewModel editorNeuronViewModel = new EditorNeuronViewModel();
@@ -269,7 +268,7 @@
                         async (rq, pi) =>
                         {
                             pi.Description = "Terminal creation";
-                        // add directly via API
+                            // add directly via API
                             this.resultTerminal.Id = Guid.NewGuid().ToString();
 
                             await this.terminalApplicationService.CreateTerminalFromViewModel(
@@ -392,8 +391,6 @@
         }
     }
 
-    private bool AcceptedDrive { get; set; }
-
     private Neuron initialRegionNeuron;
     [Parameter]
     public Neuron InitialRegionNeuron
@@ -436,7 +433,6 @@
     }
 
     private bool IsSearchRegionNeuronVisible { get; set; } = false;
-    private bool IsGoogleDriveBoxVisible { get; set; } = false;
 
     private EventCallback<EditorTerminalViewModel> internalResultTerminalChanged;
 
@@ -509,18 +505,6 @@
 
     private async Task KeyPress(KeyboardEventArgs e)
     {
-        bool check = this.editorNeuronViewModel.Tag.Contains("https://drive.google.com/file");
-        if (check)
-        {
-            if (!this.AcceptedDrive)
-            { 
-                this.OnGoogleDrive();
-            }
-        }
-        else
-        {
-            this.AcceptedDrive = false;
-        }
         if ((e.Code == "Enter" || e.Code == "NumpadEnter") && e.CtrlKey)
         {
             await this.FormSubmitted(this.editContext);
@@ -555,7 +539,6 @@
                                     pi,
                                     () => this.IsConfirmCreateSimilarVisible = true,
                                     true,
-                                    this.AcceptedDrive,
                                     this.PluginSettingsService
                                 );
                             else
@@ -564,7 +547,7 @@
                             break;
                         case ContextMenuOption.Edit:
                             pi.Description = "Neuron modification";
-                        // TODO: indicate how many and which changes succeeded/failed
+                            // TODO: indicate how many and which changes succeeded/failed
                             if (this.editorNeuronViewModel.Tag != this.preEditCopy.Tag)
                             {
                                 await this.neuronApplicationService.ChangeNeuronTag(
@@ -606,7 +589,6 @@
                                 pi,
                                 () => this.IsConfirmCreateSimilarVisible = true,
                                 false,
-                                this.AcceptedDrive,
                                 this.PluginSettingsService
                             );
                             break;
@@ -628,7 +610,6 @@
         ProcessInfo pi, 
         Action hasSimilarHandler, 
         bool instantiatesMessageNeuron,
-        bool instantiatesGoogleDriveImageNeuron,
         MessageTreePluginSettingsService messageTreePluginSettingsService
     )
     {
@@ -644,7 +625,7 @@
 
         if (!items.Any())
         {
-            await EditorBox.CreateNeuronCore(neuronApplicationService,neuronQueryService,toastService, rq, editorNeuronViewModel, terminalApplicationService, instantiatesMessageNeuron,instantiatesGoogleDriveImageNeuron,messageTreePluginSettingsService);
+            await EditorBox.CreateNeuronCore(neuronApplicationService,neuronQueryService,toastService, rq, editorNeuronViewModel, terminalApplicationService, instantiatesMessageNeuron,messageTreePluginSettingsService);
             result = true;
         }
         else
@@ -665,7 +646,6 @@
         EditorNeuronViewModel editorNeuronViewModel, 
         ITerminalApplicationService terminalApplicationService,
         bool bInstantiatesMessageNeuron,
-        bool bInstantiatesGoogleDriveImageNeuron,
         MessageTreePluginSettingsService messageTreePluginSettingsService
     )
     {
@@ -731,7 +711,8 @@
                     .FirstOrDefault();
             }
             validMessage = instantiatesGoogleDriveImageNeuron.ValidateExists(toastService, ErrorMessage.MissingExternalInstantiatesGoogleDriveImage);
-            if (bInstantiatesGoogleDriveImageNeuron && validMessage)
+            bool check = editorNeuronViewModel.Tag.Contains("https://drive.google.com/file");
+            if (check && validMessage)
             {
                 var terminalToInstantiatesMessageCreated = editorNeuronViewModel.Terminals.Any(
                     t => t.Type == RelativeType.Postsynaptic &&
@@ -791,11 +772,6 @@
     private void OnSearchRegionNeuron()
     {
         this.IsSearchRegionNeuronVisible = true;
-    }
-
-    private void OnGoogleDrive()
-    {
-        this.IsGoogleDriveBoxVisible = true;
     }
 
     private void OnSearchExternalReferenceNeuron()
@@ -861,7 +837,6 @@
                     editorNeuronViewModel,
                     terminalApplicationService,
                     true,
-                    this.AcceptedDrive,
                     this.PluginSettingsService
                     );
                 return true;

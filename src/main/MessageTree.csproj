@@ -38,8 +38,5 @@
 		<EmbeddedResource Include="wwwroot\**\*" />
 	</ItemGroup>
 
-	<ItemGroup>
-	  <None Remove="EditorBox.razor~RF19cc6b91.TMP" />
-	</ItemGroup>
 	
 </Project>
