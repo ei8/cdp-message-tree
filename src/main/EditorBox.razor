@@ -714,12 +714,12 @@
             bool check = editorNeuronViewModel.Tag.Contains("https://drive.google.com/file");
             if (check && validMessage)
             {
-                var terminalToInstantiatesMessageCreated = editorNeuronViewModel.Terminals.Any(
+                var terminalToInstantiatesGoogleDriveImageCreated = editorNeuronViewModel.Terminals.Any(
                     t => t.Type == RelativeType.Postsynaptic &&
                     t.Neuron.Id == instantiatesGoogleDriveImageNeuron.Id
                 );
 
-                if (!terminalToInstantiatesMessageCreated)
+                if (!terminalToInstantiatesGoogleDriveImageCreated)
                     await terminalApplicationService.CreateTerminal(
                         rq.AvatarUrl,
                         Guid.NewGuid().ToString(),
