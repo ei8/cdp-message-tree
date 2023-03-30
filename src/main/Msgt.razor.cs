@@ -233,7 +233,7 @@ namespace ei8.Cortex.Diary.Plugins.MessageTree
                         this.instantiatesGoogleDriveImageNeuron.Id,
                         neuron.Neuron.Id,
                         new NeuronQuery());
-                    if (newNeuron.Count == 1)
+                    if (newNeuron.Items.SingleOrDefault() != null)
                     {
                         neuron.Seen = true;
                     }
