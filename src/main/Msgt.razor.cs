@@ -213,7 +213,7 @@ namespace ei8.Cortex.Diary.Plugins.MessageTree
             await base.OnAfterRenderAsync(firstRender);
         }
 
-        private async void DetectTermianlNeuron()
+        private async void DetectTerminalNeuron()
         {
             var neurons = this.Children;
             if(QueryUrl.TryParse(this.AvatarUrl, out QueryUrl result))
@@ -401,7 +401,7 @@ namespace ei8.Cortex.Diary.Plugins.MessageTree
                     await this.SetReloading(false);
                 }
             );
-            System.Threading.Thread thread = new System.Threading.Thread(this.DetectTermianlNeuron);
+            System.Threading.Thread thread = new System.Threading.Thread(this.DetectTerminalNeuron);
             thread.Start();
         }
 
