@@ -111,9 +111,9 @@
                                     {
                                         @if (child.Seen)
                                         {
-                                            child.Neuron.Tag = ConvertDriveLinkToDirectLink(child.Neuron.Tag);
-                                            <a href="@child.Neuron.Tag" target="_blank">
-                                            <img src="@child.Neuron.Tag" style="height: 100%; width: 100%; object-fit: contain" />
+                                            this.Tag = this.ConvertToDirectUrl(child.Neuron.Tag);
+                                            <a href="@this.Tag" target="_blank">
+                                                <img src="@this.Tag" style="height: 100%; width: 100%; object-fit: contain" />
                                             </a>
                                         }
                                         else if (tagUrlType == UrlType.GoogleDriveVideo)
@@ -226,6 +226,7 @@
     [Parameter]
     public EventCallback<TreeNeuronViewModel> SelectedNeuronChanged { get; set; }
 
+    private string Tag;
     private TreeNeuronViewModel selectedNeuron;
     [Parameter]
     public TreeNeuronViewModel SelectedNeuron
@@ -276,15 +277,15 @@
             "";
     }
 
-    private string ConvertDriveLinkToDirectLink(string link)
+    private string ConvertToDirectUrl(string googleDriveSharedUrl)
     {
         Regex pattern = new Regex(@"/d/(.*?)/");
-        var match = pattern.Match(link);
+        var match = pattern.Match(googleDriveSharedUrl);
         if (match.Success)
         {
             return "https://drive.google.com/uc?id="+match.Groups[1].Value;
         }
-        return link;
+        return googleDriveSharedUrl;
     }
 
     private UrlType GetUrlType(string url)
@@ -362,10 +363,5 @@
             dict.Add("style", "color:red");
         return dict;
 
-    }
-
-    private void Scroll(TreeNeuronViewModel tree)
-    {
-        tree.StartTimer();
     }
 }

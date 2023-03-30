@@ -401,7 +401,7 @@ namespace ei8.Cortex.Diary.Plugins.MessageTree
                     await this.SetReloading(false);
                 }
             );
-            System.Threading.Thread thread = new System.Threading.Thread(DetectTermianlNeuron);
+            System.Threading.Thread thread = new System.Threading.Thread(this.DetectTermianlNeuron);
             thread.Start();
         }
 
