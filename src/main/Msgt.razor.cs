@@ -31,7 +31,7 @@ namespace ei8.Cortex.Diary.Plugins.MessageTree
         private Timer refreshTimer;
         private DotNetObjectReference<Msgt>? dotNetHelper;
         private MessageTreePluginSettingsService pluginSettingsService;
-
+        private Neuron instantiatesGoogleDriveImageNeuron;
         public Msgt()
         {
             this.internalSelectedOptionChanged = EventCallback.Factory.Create(this, new Func<ContextMenuOption, Task>(this.HandleSelectionOptionChanged));
@@ -200,8 +200,45 @@ namespace ei8.Cortex.Diary.Plugins.MessageTree
                 // register push notification service worker
                 var objRef = DotNetObjectReference.Create(this);
                 await this.JsRuntime.InvokeVoidAsync("RegisterServiceWorker", objRef);
+
+                //this.instantiatesGoogleDriveImageNeuron = (await neuronQueryService.GetNeurons(
+                //    rq.AvatarUrl,
+                //    new NeuronQuery()
+                //    {
+                //        ExternalReferenceUrl = new string[] { messageTreePluginSettingsService.PosterUrls.InstantiatesGoogleDriveImage }
+                //    }))
+                //    .Items
+                //    .FirstOrDefault();
             }
             await base.OnAfterRenderAsync(firstRender);
+        }
+
+        private async void DetectTerminalNeuron()
+        {
+            var neurons = this.Children;
+            if(QueryUrl.TryParse(this.AvatarUrl, out QueryUrl result))
+            {
+                this.instantiatesGoogleDriveImageNeuron = (await this.NeuronQueryService.GetNeurons(
+                result.AvatarUrl,
+                new NeuronQuery()
+                {
+                    ExternalReferenceUrl = new string[] { this.pluginSettingsService.PosterUrls.InstantiatesGoogleDriveImage }
+                }))
+                .Items
+                .FirstOrDefault();
+                foreach (var neuron in neurons)
+                {
+                    var newNeuron = await this.NeuronQueryService.GetNeuronById(
+                        result.AvatarUrl,
+                        this.instantiatesGoogleDriveImageNeuron.Id,
+                        neuron.Neuron.Id,
+                        new NeuronQuery());
+                    if (newNeuron.Items.SingleOrDefault() != null)
+                    {
+                        neuron.Seen = true;
+                    }
+                }
+            }
         }
 
         private async void OnTimerInterval(object sender, ElapsedEventArgs e)
@@ -364,6 +401,8 @@ namespace ei8.Cortex.Diary.Plugins.MessageTree
                     await this.SetReloading(false);
                 }
             );
+            System.Threading.Thread thread = new System.Threading.Thread(this.DetectTerminalNeuron);
+            thread.Start();
         }
 
         private async Task SetReloading(bool value)

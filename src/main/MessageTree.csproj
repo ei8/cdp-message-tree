@@ -28,6 +28,7 @@
     <PackageReference Include="ei8.Cortex.Diary.Port.Adapter.UI.Views.Blazor.Common" Version="0.2.1" />
     <PackageReference Include="ei8.Cortex.Library.Client" Version="0.3.0" />
     <PackageReference Include="ei8.Cortex.Subscriptions.Common" Version="0.1.6" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="6.0.10" />
     <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="6.0.12" />
     <PackageReference Include="Neurul.Common" Version="0.1.19" />
     <PackageReference Include="neurUL.Common.Http" Version="0.1.15" />
@@ -36,6 +37,11 @@
 
 	<ItemGroup>
 		<EmbeddedResource Include="wwwroot\**\*" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Content Remove="wwwroot\script.js" />
+	  <Content Remove="wwwroot\style.css" />
 	</ItemGroup>
 
 	
