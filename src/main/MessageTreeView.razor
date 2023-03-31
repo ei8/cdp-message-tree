@@ -111,9 +111,9 @@
                                     {
                                         @if (child.Seen)
                                         {
-                                            this.Tag = this.ConvertToDirectUrl(child.Neuron.Tag);
-                                            <a href="@this.Tag" target="_blank">
-                                                <img src="@this.Tag" style="height: 100%; width: 100%; object-fit: contain" />
+                                            var directUrl = this.ConvertToDirectUrl(child.Neuron.Tag);
+                                            <a href="@directUrl" target="_blank">
+                                                <img src="@directUrl" style="height: 100%; width: 100%; object-fit: contain" />
                                             </a>
                                         }
                                         else if (tagUrlType == UrlType.GoogleDriveVideo)
@@ -226,7 +226,6 @@
     [Parameter]
     public EventCallback<TreeNeuronViewModel> SelectedNeuronChanged { get; set; }
 
-    private string Tag;
     private TreeNeuronViewModel selectedNeuron;
     [Parameter]
     public TreeNeuronViewModel SelectedNeuron
